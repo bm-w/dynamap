@@ -73,6 +73,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
     protected ${field.elementType} ${field.name}Delta;
     </#if>
 </#list>
+    protected boolean createIfNotExists;
     protected boolean disableOptimisticLocking;
 
     <#if isRoot>
@@ -114,6 +115,11 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
             return this;
         }
         </#if>
+
+        public ${updatesName} setCreateIfNotExists(boolean createIfNotExists) {
+            this.createIfNotExists = createIfNotExists;
+            return this;
+        }
 
         ${updatesName}(${updatesName} updates) {
             this(new ${type.name}Bean(updates), updates.getHashKeyValue()<#if tableDefinition.rangeKey??>, updates.getRangeKeyValue()</#if>);
@@ -543,11 +549,6 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
 
     @Override
     public void processUpdateExpression() {
-        processUpdateExpression(false);
-    }
-
-    @Override
-    public void processUpdateExpression(boolean createIfNotExists) {
 
         if (updatesApplied) {
             throw new IllegalStateException("Updates have already been applied. A new Updates object must be created");
@@ -562,7 +563,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
 
 <#if isRoot && optimisticLocking>
         if (!disableOptimisticLocking) {
-            expression.incrementNumber(parentDynamoFieldName, "${revisionFieldName}", 1, -1);
+            expression.incrementNumber(parentDynamoFieldName, "${revisionFieldName}", 1, createIfNotExists ? 0 : null);
         }
 </#if>
 

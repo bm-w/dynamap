@@ -758,7 +758,7 @@ public class Dynamap {
     private UpdateItemSpec getUpdateItemSpec(RecordUpdates updates, TableDefinition tableDefinition, DynamapReturnValue returnValue, boolean createIfNotExists) {
         DynamoExpressionBuilder expressionBuilder = updates.getExpressionBuilder();
         expressionBuilder.setObjectMapper(objectMapper);
-        updates.processUpdateExpression(createIfNotExists);
+        updates.processUpdateExpression();
 
         UpdateItemSpec updateItemSpec = new UpdateItemSpec().withReturnValues(ReturnValue.fromValue(returnValue.toString()));
         Field hashField = tableDefinition.getField(tableDefinition.getHashKey());
