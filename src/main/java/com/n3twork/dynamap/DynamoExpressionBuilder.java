@@ -96,23 +96,22 @@ public class DynamoExpressionBuilder {
         return valueMap;
     }
 
+    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Number defaultValue) {
+        return incrementNumber(parentField, fieldName, amount, null, defaultValue);
+    }
 
-    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Boolean isValueSet, Number defaultValue) {
-        String alias = vals.next();
+    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Boolean deprecatedIsValueSet, Number defaultValue) {
+        String fieldAlias = joinFields(parentField, fieldName);
+        String initialValueAlias = vals.next();
+        String amountAlias = vals.next();
         if (amount instanceof Integer) {
-            if (defaultValue != null && (isValueSet != null && isValueSet)) {
-                valueMap = valueMap.withInt(alias, (Integer) amount + defaultValue.intValue());
-            } else {
-                valueMap = valueMap.withInt(alias, (Integer) amount);
-            }
+            valueMap = valueMap.withInt(initialValueAlias, defaultValue != null ? defaultValue.intValue() : 0);
+            valueMap = valueMap.withInt(amountAlias, amount.intValue());
         } else if (amount instanceof Long) {
-            if (defaultValue != null && (isValueSet != null && isValueSet)) {
-                valueMap = valueMap.withLong(alias, (Long) amount + defaultValue.longValue());
-            } else {
-                valueMap = valueMap.withLong(alias, (Long) amount);
-            }
+            valueMap = valueMap.withLong(initialValueAlias, defaultValue != null ? defaultValue.longValue() : 0);
+            valueMap = valueMap.withLong(amountAlias, amount.longValue());
         }
-        addSection.add(String.format("%s %s", joinFields(parentField, fieldName), alias));
+        setSection.add(String.format("%s=if_not_exists(%s,%s)+%s", fieldAlias, fieldAlias, initialValueAlias, amountAlias));
         return this;
     }
 

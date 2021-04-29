@@ -552,7 +552,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
         String parentDynamoFieldName = <#if isRoot>null;<#else>"${parentFieldName}";</#if>
 <#if isRoot && optimisticLocking>
         if (!disableOptimisticLocking) {
-            expression.incrementNumber(parentDynamoFieldName, "${revisionFieldName}", 1, null, null);
+            expression.incrementNumber(parentDynamoFieldName, "${revisionFieldName}", 1, -1);
         }
 </#if>
 
@@ -627,7 +627,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
                 expression.setValue(parentDynamoFieldName, "${field.dynamoName}", ${field.name});
             }
             else if (${field.name}Delta != null) {
-                expression.incrementNumber(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Delta, ${currentState}.is${field.name?cap_first}Set(), <@defaultValue field=field elementOnly=false />);
+                expression.incrementNumber(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Delta, <@defaultValue field=field elementOnly=false />);
             }
             else {
                 expression.removeField(parentDynamoFieldName, "${field.dynamoName}");
