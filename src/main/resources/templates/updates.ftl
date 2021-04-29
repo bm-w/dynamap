@@ -543,6 +543,11 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
 
     @Override
     public void processUpdateExpression() {
+        processUpdateExpression(false);
+    }
+
+    @Override
+    public void processUpdateExpression(boolean createIfNotExists) {
 
         if (updatesApplied) {
             throw new IllegalStateException("Updates have already been applied. A new Updates object must be created");
@@ -550,6 +555,11 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
         updatesApplied = true;
 
         String parentDynamoFieldName = <#if isRoot>null;<#else>"${parentFieldName}";</#if>
+
+        if (createIfNotExists) {
+            expression.setValue(parentDynamoFieldName, "${schemaVersionFieldName}", ${rootType}.SCHEMA_VERSION);
+        }
+
 <#if isRoot && optimisticLocking>
         if (!disableOptimisticLocking) {
             expression.incrementNumber(parentDynamoFieldName, "${revisionFieldName}", 1, -1);
@@ -584,7 +594,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
 
         <#elseif field.type == 'List'>
             <#if field.useDeltas() && !field.isCompressCollection()>
-                expression.addValuesToList(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Adds, ${field.elementType}.class);
+                expression.addValuesToList(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Adds, ${field.elementType}.class, createIfNotExists);
             <#else>
                 <#if field.isCompressCollection()>
                 expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(get${field.name?cap_first}(), expression.getObjectMapper()));
@@ -645,7 +655,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
     </#list>
 
     // Conditional expression
-    expression.addCheckFieldValueCondition(null, "${schemaVersionFieldName}", ${rootType}.SCHEMA_VERSION, DynamoExpressionBuilder.ComparisonOperator.EQUALS);
+    expression.addCheckFieldValueCondition(null, "${schemaVersionFieldName}", ${rootType}.SCHEMA_VERSION, DynamoExpressionBuilder.ComparisonOperator.EQUALS, createIfNotExists);
     <#if isRoot && optimisticLocking>
             if (!disableOptimisticLocking && ${currentState}.getRevision() > 0) {
                 expression.addCheckFieldValueCondition(null, "${revisionFieldName}", ${currentState}.getRevision(), DynamoExpressionBuilder.ComparisonOperator.EQUALS);

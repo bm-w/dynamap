@@ -605,7 +605,7 @@ public class Dynamap {
         String suffix = updateParams.getSuffix();
 
         TableDefinition tableDefinition = schemaRegistry.getTableDefinition(updates.getTableName());
-        UpdateItemSpec updateItemSpec = getUpdateItemSpec(updates, tableDefinition, updateParams.getDynamapReturnValue());
+        UpdateItemSpec updateItemSpec = getUpdateItemSpec(updates, tableDefinition, updateParams.getDynamapReturnValue(), updateParams.getCreateIfNotExists());
         Table table = tableCache.getTable(tableDefinition.getTableName(prefix, suffix));
 
         logger.debug("About to submit DynamoDB Update: Update expression: {}, Conditional expression: {}, Values {}, Names: {}", updateItemSpec.getUpdateExpression(), updateItemSpec.getConditionExpression(), updateItemSpec.getValueMap(), updateItemSpec.getNameMap());
@@ -755,10 +755,10 @@ public class Dynamap {
         return attributeDefinitions.stream().anyMatch(d -> d.getAttributeName().equals(name));
     }
 
-    private UpdateItemSpec getUpdateItemSpec(RecordUpdates updates, TableDefinition tableDefinition, DynamapReturnValue returnValue) {
+    private UpdateItemSpec getUpdateItemSpec(RecordUpdates updates, TableDefinition tableDefinition, DynamapReturnValue returnValue, boolean createIfNotExists) {
         DynamoExpressionBuilder expressionBuilder = updates.getExpressionBuilder();
         expressionBuilder.setObjectMapper(objectMapper);
-        updates.processUpdateExpression();
+        updates.processUpdateExpression(createIfNotExists);
 
         UpdateItemSpec updateItemSpec = new UpdateItemSpec().withReturnValues(ReturnValue.fromValue(returnValue.toString()));
         Field hashField = tableDefinition.getField(tableDefinition.getHashKey());

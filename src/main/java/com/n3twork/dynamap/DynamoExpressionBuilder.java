@@ -121,9 +121,16 @@ public class DynamoExpressionBuilder {
     }
 
     public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type) {
+        return addValuesToList(parentField, fieldName, adds, type);
+    }
+
+    public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type, boolean createIfNotExists) {
         if (adds.size() > 0) {
             String fieldAlias = joinFields(parentField, fieldName);
-            setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, fieldAlias, processValueAlias(vals, adds, type)));
+            String sourceFieldAlias = createIfNotExists
+                    ?  String.format("if_not_exists(%s,%s)", fieldAlias, processValueAlias(vals, Collections.emptyList(), type))
+                    : fieldAlias;
+            setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, sourceFieldAlias, processValueAlias(vals, adds, type)));
         }
         return this;
     }
@@ -191,7 +198,16 @@ public class DynamoExpressionBuilder {
     //////// Conditional Expression ////
 
     public DynamoExpressionBuilder addCheckFieldValueCondition(String parentField, String fieldName, Object value, ComparisonOperator op) {
-        conditions.add(String.format("%s " + op.getValue() + " %s", joinFields(parentField, fieldName), processValueAlias(condVals, value)));
+        return addCheckFieldValueCondition(parentField, fieldName, value, op, false);
+    }
+
+    public DynamoExpressionBuilder addCheckFieldValueCondition(String parentField, String fieldName, Object value, ComparisonOperator op, boolean ifAttributeNotExists) {
+        String fieldAlias = joinFields(parentField, fieldName);
+        String checkValueCondition = String.format("%s " + op.getValue() + " %s", fieldAlias, processValueAlias(condVals, value));
+        if (ifAttributeNotExists) {
+            checkValueCondition = String.format("(attribute_not_exists(%s) OR %s)", fieldAlias, checkValueCondition);
+        }
+        conditions.add(checkValueCondition);
         return this;
     }
 

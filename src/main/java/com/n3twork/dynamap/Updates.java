@@ -21,6 +21,7 @@ public interface Updates<T extends DynamapPersisted<? extends Updates<T>>> {
     DynamoExpressionBuilder getExpressionBuilder();
 
     void processUpdateExpression();
+    void processUpdateExpression(boolean createIfNotExists);
 
     /**
      *
