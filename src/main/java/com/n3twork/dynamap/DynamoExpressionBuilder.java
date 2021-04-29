@@ -116,7 +116,16 @@ public class DynamoExpressionBuilder {
     }
 
     public DynamoExpressionBuilder setValue(String parentField, String fieldName, Object value) {
-        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), processValueAlias(vals, value)));
+        return this.setValue(parentField, fieldName, value, false);
+    }
+
+    public DynamoExpressionBuilder setValue(String parentField, String fieldName, Object value, boolean onlyIfNotExists) {
+        String fieldAllias = joinFields(parentField, fieldName);
+        String valueAlias = processValueAlias(vals, value);
+        String rhs = onlyIfNotExists
+                ? String.format("if_not_exists(%s,%s)", fieldAllias, valueAlias)
+                : valueAlias;
+        setSection.add(String.format("%s=%s", fieldAllias, rhs));
         return this;
     }
 
@@ -150,7 +159,16 @@ public class DynamoExpressionBuilder {
     }
 
     public <V> DynamoExpressionBuilder setMultiValue(String parentField, String fieldName, Object collection, Class type) {
-        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), processValueAlias(vals, collection, type)));
+        return setMultiValue(parentField, fieldName, collection, type, false);
+    }
+
+    public <V> DynamoExpressionBuilder setMultiValue(String parentField, String fieldName, Object collection, Class type, boolean onlyIfNotExists) {
+        String fieldAllias = joinFields(parentField, fieldName);
+        String valueAlias = processValueAlias(vals, collection, type);
+        String rhs = onlyIfNotExists
+                ? String.format("if_not_exists(%s,%s)", fieldAllias, valueAlias)
+                : valueAlias;
+        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), rhs));
         return this;
     }
 
@@ -350,7 +368,8 @@ public class DynamoExpressionBuilder {
                 valueMap = valueMap.withList(alias, values);
             }
         } else {
-            valueMap = valueMap.with(alias, objectMapper.convertValue(value, Object.class));
+            Object object = objectMapper.convertValue(value, Object.class);
+            valueMap = valueMap.with(alias, object);
         }
         return alias;
     }

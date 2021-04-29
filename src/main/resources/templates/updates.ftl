@@ -116,11 +116,6 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
         }
         </#if>
 
-        public ${updatesName} setCreateIfNotExists(boolean createIfNotExists) {
-            this.createIfNotExists = createIfNotExists;
-            return this;
-        }
-
         ${updatesName}(${updatesName} updates) {
             this(new ${type.name}Bean(updates), updates.getHashKeyValue()<#if tableDefinition.rangeKey??>, updates.getRangeKeyValue()</#if>);
         }
@@ -136,6 +131,11 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
          }
 
     </#if>
+
+        public ${updatesName} setCreateIfNotExists(boolean createIfNotExists) {
+            this.createIfNotExists = createIfNotExists;
+            return this;
+        }
 
 
     ////// ${type.name} interface methods //////
@@ -568,7 +568,7 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
 </#if>
 
     <#list type.persistedFields as field>
-     if (${field.name}Modified) {
+      if (${field.name}Modified<#if field.type == 'Map' && (!field.useDeltas() || field.isSerializeAsList() || field.isCompressCollection() || field.isReplace()) || (field.type == 'List' || field.type == 'Set') && (!field.useDeltas() || field.isCompressCollection())> || createIfNotExists && ${currentState}.is${field.name?cap_first}Set()</#if>) {
         <#if field.type == 'Map'>
             <#if field.useDeltas() || field.isSerializeAsList() || field.isCompressCollection()>
             <#if field.isReplace() || field.isSerializeAsList() || field.isCompressCollection()>
@@ -578,9 +578,9 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
                     Object preprocess_${field.name?cap_first} = get${field.name?cap_first}();
                 </#if>
                 <#if field.isCompressCollection()>
-                    expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(preprocess_${field.name?cap_first}, expression.getObjectMapper()));
+                    expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(preprocess_${field.name?cap_first}, expression.getObjectMapper()), !${field.name}Modified);
                 <#else>
-                    expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", preprocess_${field.name?cap_first}, ${field.elementType}.class);
+                    expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", preprocess_${field.name?cap_first}, ${field.elementType}.class, !${field.name}Modified);
                 </#if>
             <#else>
                 <#if field.isNumber()>
@@ -590,36 +590,34 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
                 </#if>
              </#if>
             <#else>
-                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class);
+                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class, !${field.name}Modified);
             </#if>
-
         <#elseif field.type == 'List'>
             <#if field.useDeltas() && !field.isCompressCollection()>
                 expression.addValuesToList(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Adds, ${field.elementType}.class, createIfNotExists);
             <#else>
                 <#if field.isCompressCollection()>
-                expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(get${field.name?cap_first}(), expression.getObjectMapper()));
+                expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(get${field.name?cap_first}(), expression.getObjectMapper()), !${field.name}Modified);
                 <#else>
-                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class);
+                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class, !${field.name}Modified);
                 </#if>
             </#if>
-
         <#elseif field.type == 'Set'>
             <#if field.useDeltas()  && !field.isCompressCollection()>
                 expression.addSetValuesToSet(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Sets, ${field.elementType}.class);
                 expression.deleteValuesFromSet(parentDynamoFieldName, "${field.dynamoName}", ${field.name}Deletes, ${field.elementType}.class);
             <#else>
                <#if field.isCompressCollection()>
-                expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(get${field.name?cap_first}(), expression.getObjectMapper()));
+                expression.setValue(parentDynamoFieldName, "${field.dynamoName}", GZipUtil.serialize(get${field.name?cap_first}(), expression.getObjectMapper()), !${field.name}Modified);
                <#else>
-                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class);
+                expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", get${field.name?cap_first}(), ${field.elementType}.class, !${field.name}Modified);
                 </#if>
             </#if>
-
        <#elseif field.isGeneratedType()>
         if (${field.name}Updates != null) {
             DynamoExpressionBuilder nestedExpression = this.${field.name}Updates.getExpressionBuilder();
             nestedExpression.setObjectMapper(expression.getObjectMapper());
+            this.${field.name}Updates.setCreateIfNotExists(createIfNotExists);
             this.${field.name}Updates.processUpdateExpression();
             expression.merge(this.${field.name}Updates.getExpressionBuilder());
         }
@@ -631,7 +629,6 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
                 expression.removeField(parentDynamoFieldName, "${field.dynamoName}");
             }
         }
-
         <#else>
             <#if field.isNumber()>
             if (${field.name} != null) {
@@ -653,6 +650,22 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
             </#if>
         </#if>
       }
+      <#if field.name != tableDefinition.hashKey && field.name != tableDefinition.rangeKey! && (field.type != 'Map' || field.useDeltas() && !field.isSerializeAsList() && !field.isCompressCollection() && !field.isReplace()) && (field.type != 'List' && field.type != 'Set' || field.useDeltas() && !field.isCompressCollection())>
+        <#if (field.type == 'Map' || field.type == 'List') && field.useDeltas() && !(field.isReplace() || field.isCompressCollection())>
+        else if (createIfNotExists) {
+            expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", ${currentState}.is${field.name?cap_first}Set() ? ${currentState}.get${field.name?cap_first}() : <@default_collection field=field />, ${field.elementType}.class, true);
+        }
+        <#else>
+        else if (createIfNotExists && ${currentState}.is${field.name?cap_first}Set()) {
+            <#if field.isCollection() && !field.isCompressCollection()>
+            expression.setMultiValue(parentDynamoFieldName, "${field.dynamoName}", ${currentState}.get${field.name?cap_first}(), ${field.elementType}.class, true);
+            <#else>
+            expression.setValue(parentDynamoFieldName, "${field.dynamoName}", ${currentState}.get${field.name?cap_first}(), true);
+            </#if>
+        }
+        </#if>
+      </#if>
+
     </#list>
 
     // Conditional expression
@@ -666,12 +679,10 @@ public class ${updatesName} implements ${type.name}, <#if isRoot>Record</#if>Upd
     }
 
     <#list type.fields as field>
-    <#if !field.isCollection()>
     @Override
     public boolean is${field.name?cap_first}Set() {
         return ${currentState}.is${field.name?cap_first}Set() || is${field.name?cap_first}Modified();
     }
-    </#if>
     </#list>
 
 }

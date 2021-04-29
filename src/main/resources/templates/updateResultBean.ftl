@@ -114,7 +114,7 @@ public ${updatesName} createUpdates() {
         return newBean.get${field.name?cap_first}();
         </#if>
     }
-    <#if !field.isCollection()>
+    </#if>
     @Override
     public boolean is${field.name?cap_first}Set() {
         <#if field.persist>
@@ -123,8 +123,6 @@ public ${updatesName} createUpdates() {
         return newBean.is${field.name?cap_first}Set();
         </#if>
     }
-    </#if>
-    </#if>
     @Override
     public boolean was${field.name?cap_first}Updated() {
         return previous.is${field.name?cap_first}Modified();
