@@ -121,11 +121,18 @@ public class DynamoExpressionBuilder {
         return this;
     }
 
-    public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type) {
-        if (adds.size() > 0) {
-            String fieldAlias = joinFields(parentField, fieldName);
-            setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, fieldAlias, processValueAlias(vals, adds, type)));
+    public DynamoExpressionBuilder updateList(String parentField, String fieldName, List adds, boolean clear, Class type) {
+        if (clear) {
+            setMultiValue(parentField, fieldName, Collections.emptyList(), type);
+        } else if (adds.size() > 0) {
+            addValuesToList(parentField, fieldName, adds, type);
         }
+        return this;
+    }
+
+    public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type) {
+        String fieldAlias = joinFields(parentField, fieldName);
+        setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, fieldAlias, processValueAlias(vals, adds, type)));
         return this;
     }
 
