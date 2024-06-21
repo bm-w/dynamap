@@ -96,35 +96,50 @@ public class DynamoExpressionBuilder {
         return valueMap;
     }
 
+    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Number defaultValue) {
+        return incrementNumber(parentField, fieldName, amount, null, defaultValue);
+    }
 
-    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Boolean isValueSet, Number defaultValue) {
-        String alias = vals.next();
+    public DynamoExpressionBuilder incrementNumber(String parentField, String fieldName, Number amount, Boolean deprecatedIsValueSet, Number defaultValue) {
+        String fieldAlias = joinFields(parentField, fieldName);
+        String initialValueAlias = vals.next();
+        String amountAlias = vals.next();
         if (amount instanceof Integer) {
-            if (defaultValue != null && (isValueSet != null && isValueSet)) {
-                valueMap = valueMap.withInt(alias, (Integer) amount + defaultValue.intValue());
-            } else {
-                valueMap = valueMap.withInt(alias, (Integer) amount);
-            }
+            valueMap = valueMap.withInt(initialValueAlias, defaultValue != null ? defaultValue.intValue() : 0);
+            valueMap = valueMap.withInt(amountAlias, amount.intValue());
         } else if (amount instanceof Long) {
-            if (defaultValue != null && (isValueSet != null && isValueSet)) {
-                valueMap = valueMap.withLong(alias, (Long) amount + defaultValue.longValue());
-            } else {
-                valueMap = valueMap.withLong(alias, (Long) amount);
-            }
+            valueMap = valueMap.withLong(initialValueAlias, defaultValue != null ? defaultValue.longValue() : 0);
+            valueMap = valueMap.withLong(amountAlias, amount.longValue());
         }
-        addSection.add(String.format("%s %s", joinFields(parentField, fieldName), alias));
+        setSection.add(String.format("%s=if_not_exists(%s,%s)+%s", fieldAlias, fieldAlias, initialValueAlias, amountAlias));
         return this;
     }
 
     public DynamoExpressionBuilder setValue(String parentField, String fieldName, Object value) {
-        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), processValueAlias(vals, value)));
+        return this.setValue(parentField, fieldName, value, false);
+    }
+
+    public DynamoExpressionBuilder setValue(String parentField, String fieldName, Object value, boolean onlyIfNotExists) {
+        String fieldAllias = joinFields(parentField, fieldName);
+        String valueAlias = processValueAlias(vals, value);
+        String rhs = onlyIfNotExists
+                ? String.format("if_not_exists(%s,%s)", fieldAllias, valueAlias)
+                : valueAlias;
+        setSection.add(String.format("%s=%s", fieldAllias, rhs));
         return this;
     }
 
     public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type) {
+        return addValuesToList(parentField, fieldName, adds, type);
+    }
+
+    public DynamoExpressionBuilder addValuesToList(String parentField, String fieldName, List adds, Class type, boolean createIfNotExists) {
         if (adds.size() > 0) {
             String fieldAlias = joinFields(parentField, fieldName);
-            setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, fieldAlias, processValueAlias(vals, adds, type)));
+            String sourceFieldAlias = createIfNotExists
+                    ?  String.format("if_not_exists(%s,%s)", fieldAlias, processValueAlias(vals, Collections.emptyList(), type))
+                    : fieldAlias;
+            setSection.add(String.format("%s=list_append(%s,%s)", fieldAlias, sourceFieldAlias, processValueAlias(vals, adds, type)));
         }
         return this;
     }
@@ -144,7 +159,16 @@ public class DynamoExpressionBuilder {
     }
 
     public <V> DynamoExpressionBuilder setMultiValue(String parentField, String fieldName, Object collection, Class type) {
-        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), processValueAlias(vals, collection, type)));
+        return setMultiValue(parentField, fieldName, collection, type, false);
+    }
+
+    public <V> DynamoExpressionBuilder setMultiValue(String parentField, String fieldName, Object collection, Class type, boolean onlyIfNotExists) {
+        String fieldAllias = joinFields(parentField, fieldName);
+        String valueAlias = processValueAlias(vals, collection, type);
+        String rhs = onlyIfNotExists
+                ? String.format("if_not_exists(%s,%s)", fieldAllias, valueAlias)
+                : valueAlias;
+        setSection.add(String.format("%s=%s", joinFields(parentField, fieldName), rhs));
         return this;
     }
 
@@ -192,7 +216,16 @@ public class DynamoExpressionBuilder {
     //////// Conditional Expression ////
 
     public DynamoExpressionBuilder addCheckFieldValueCondition(String parentField, String fieldName, Object value, ComparisonOperator op) {
-        conditions.add(String.format("%s " + op.getValue() + " %s", joinFields(parentField, fieldName), processValueAlias(condVals, value)));
+        return addCheckFieldValueCondition(parentField, fieldName, value, op, false);
+    }
+
+    public DynamoExpressionBuilder addCheckFieldValueCondition(String parentField, String fieldName, Object value, ComparisonOperator op, boolean ifAttributeNotExists) {
+        String fieldAlias = joinFields(parentField, fieldName);
+        String checkValueCondition = String.format("%s " + op.getValue() + " %s", fieldAlias, processValueAlias(condVals, value));
+        if (ifAttributeNotExists) {
+            checkValueCondition = String.format("(attribute_not_exists(%s) OR %s)", fieldAlias, checkValueCondition);
+        }
+        conditions.add(checkValueCondition);
         return this;
     }
 
@@ -335,7 +368,8 @@ public class DynamoExpressionBuilder {
                 valueMap = valueMap.withList(alias, values);
             }
         } else {
-            valueMap = valueMap.with(alias, objectMapper.convertValue(value, Object.class));
+            Object object = objectMapper.convertValue(value, Object.class);
+            valueMap = valueMap.with(alias, object);
         }
         return alias;
     }

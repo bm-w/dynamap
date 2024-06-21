@@ -1474,6 +1474,32 @@ public class DynamapTest {
 
     }
 
+    @Test
+    public void testUpdateFailsToCreateIfNotExistsByDefault() {
+        TestDocument testDocument = createTestDocumentBean(createNestedTypeBean());
+        TestDocumentUpdates updates = testDocument.createUpdates();
+        // NB. Creating if the item does not yet exist is disable dy default
+        try {
+            dynamap.update(new UpdateParams<>(updates));
+            Assert.fail();
+        } catch (ConditionalCheckFailedException e) {}
+    }
+
+    @Test
+    public void testUpdateCreateIfNotExists() {
+        TestDocument testDocument = createTestDocumentBean(createNestedTypeBean());
+        TestDocumentUpdates updates = testDocument.createUpdates()
+                .setCreateIfNotExists(true)
+                .addListOfStringItem("original updates string");
+        TestDocumentUpdateResult result = dynamap.update(new UpdateParams<>(updates));
+        Assert.assertFalse(result.wasIdUpdated()); // NB. The key is not included in the update expression
+        TestDocumentUpdates furtherUpdates = result.createUpdates()
+                .setMapOfLongValue("further updates key", 1337L)
+                .addListOfStringItem("further updates string")
+                .setSetOfStringItem("further updates string");
+        dynamap.update(new UpdateParams<>(furtherUpdates));
+    }
+
     int seq = 0;
 
     private TestDocumentBean createTestDocumentBean(NestedTypeBean nestedTypeBean) {

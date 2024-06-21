@@ -22,6 +22,7 @@ public class UpdateParams<T extends DynamapPersisted<? extends RecordUpdates<T>>
     private DynamoRateLimiter writeLimiter;
     private String suffix;
     private DynamapReturnValue dynamapReturnValue = DynamapReturnValue.ALL_NEW;
+    private boolean createIfNotExists = false;
 
     private UpdateParams() {
     }
@@ -45,6 +46,11 @@ public class UpdateParams<T extends DynamapPersisted<? extends RecordUpdates<T>>
         return this;
     }
 
+    public UpdateParams<T> withCreateIfNotExists(boolean createIfNotExists) {
+        this.createIfNotExists = createIfNotExists;
+        return this;
+    }
+
     ////////
 
 
@@ -62,5 +68,9 @@ public class UpdateParams<T extends DynamapPersisted<? extends RecordUpdates<T>>
 
     public DynamapReturnValue getDynamapReturnValue() {
         return dynamapReturnValue;
+    }
+
+    public boolean getCreateIfNotExists() {
+        return createIfNotExists;
     }
 }

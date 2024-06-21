@@ -4,6 +4,7 @@ import com.amazonaws.services.dynamodbv2.document.Item;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.n3twork.dynamap.model.TableDefinition;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +62,12 @@ class DynamapBeanFactory {
             if (persistAsFieldItem.parentKey != null) {
                 Map<String, Object> parent = (Map<String, Object>) map.get(persistAsFieldItem.parentKey);
                 if (parent != null) {
-                    list = (List<Map<String, Object>>) parent.get(persistAsFieldItem.itemKey);
+                    Object object = parent.get(persistAsFieldItem.itemKey);
+                    if (object instanceof List) {
+                        list = (List<Map<String, Object>>) object;
+                    } else if (object instanceof Map && ((Map)object).isEmpty()) {
+                        list = Collections.emptyList();
+                    }
                 }
             } else {
                 list = (List<Map<String, Object>>) map.get(persistAsFieldItem.itemKey);
